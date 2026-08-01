@@ -26,17 +26,17 @@ Remove-Item -Path "build", "dist" -Recurse -Force -ErrorAction SilentlyContinue
 pyinstaller --clean magnifier.py | Out-Null # Suppress PyInstaller clean output
 pyinstaller --clean magpy_settings.py | Out-Null # Suppress PyInstaller clean output
 
-# 4. Build magnifier.exe
-Write-Host "Building standalone magnifier.exe with PyInstaller..."
-pyinstaller --onefile --noconsole magnifier.py
+# 4. Build MagPy.exe
+Write-Host "Building standalone MagPy.exe with PyInstaller..."
+pyinstaller --onefile --noconsole --name "MagPy" --icon "myicon.ico" --add-data "myicon.ico;." magnifier.py
 if ($LASTEXITCODE -ne 0) {
-    Write-Host "ERROR: PyInstaller failed for magnifier.exe with code $LASTEXITCODE! Please check the console output above for details." -ForegroundColor Red
+    Write-Host "ERROR: PyInstaller failed for MagPy.exe with code $LASTEXITCODE! Please check the console output above for details." -ForegroundColor Red
     exit 1
 }
 
 # 5. Build magpy_settings.exe
 Write-Host "Building standalone magpy_settings.exe with PyInstaller..."
-pyinstaller --onefile --noconsole magpy_settings.py
+pyinstaller --onefile --noconsole --icon "myicon.ico" --add-data "myicon.ico;." magpy_settings.py
 if ($LASTEXITCODE -ne 0) {
     Write-Host "ERROR: PyInstaller failed for magpy_settings.exe with code $LASTEXITCODE! Please check the console output above for details." -ForegroundColor Red
     exit 1
@@ -46,7 +46,7 @@ Write-Host ""
 Write-Host "--- MagPy Executables Build Complete ---" -ForegroundColor Green
 Write-Host ""
 Write-Host "Executables are available in the 'dist' folder: $($PSScriptRoot)\dist\"
-Write-Host "You can find magnifier.exe in $($PSScriptRoot)\dist\"
+Write-Host "You can find MagPy.exe in $($PSScriptRoot)\dist\"
 Write-Host "You can find magpy_settings.exe in $($PSScriptRoot)\dist\"
 
 Read-Host -Prompt "Press any key to continue..."

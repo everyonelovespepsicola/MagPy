@@ -3,6 +3,7 @@ from tkinter import messagebox
 from tkinter import ttk # Import ttk for themed widgets
 import json
 import os
+import sys
 import ctypes
 
 # Global mapping for Virtual Key Codes (Windows specific)
@@ -27,12 +28,26 @@ REVERSE_VK_CODE_MAP = {v: k for k, v in VK_CODE_MAP.items()}
 # Define cache path in the AppData folder
 SETTINGS_FILE = os.path.join(os.getenv('APPDATA'), 'MagPy', 'settings.json')
 
+def get_resource_path(relative_path):
+    """Get absolute path to resource, works for dev and for PyInstaller."""
+    try:
+        base_path = sys._MEIPASS
+    except AttributeError:
+        base_path = os.path.abspath(".")
+    return os.path.join(base_path, relative_path)
+
 class SettingsApp:
     def __init__(self, master):
         self.master = master
-        master.title("MagPy Settings") 
-        master.geometry("400x400") # Increased height to prevent cutoff
+        master.title("MagPy Settings")
+        master.geometry("420x480") # Increased height for filter selection
         master.resizable(False, False)
+
+        # Set the application icon
+        try:
+            master.iconbitmap(get_resource_path('myicon.ico'))
+        except Exception:
+            pass
 
         self.settings = self._load_settings()
         self.keybinding_vars = {}
@@ -50,6 +65,7 @@ class SettingsApp:
         style.configure('TFrame', background='#2e2e2e')
         style.configure('TEntry', fieldbackground='#4a4a4a', foreground='#ffffff', borderwidth=1, relief="solid")
         style.map('TEntry', fieldbackground=[('readonly', '#4a4a4a')]) # Ensure readonly entry is also dark
+        style.configure('TCombobox', fieldbackground='#4a4a4a', background='#5c5c5c', foreground='#ffffff', font=("Arial", 10))
         style.configure('TButton', background='#5c5c5c', foreground='#ffffff', font=("Arial", 10, "bold"))
         style.map('TButton',
             background=[('active', '#7a7a7a')], # Darker on hover
@@ -68,6 +84,7 @@ class SettingsApp:
             'square': 0,
             'win_x': 0, 'win_y': 0, 'win_w': 0, 'win_h': 0,
             'msaa_samples': 4,
+            'filter_mode': 'unsharp',
             'has_window_state': False,
             'keybindings': {
                 "exit_key": "", # Set to nothing by default
@@ -83,7 +100,6 @@ class SettingsApp:
             os.makedirs(os.path.dirname(SETTINGS_FILE), exist_ok=True)
             with open(SETTINGS_FILE, 'r') as f:
                 loaded_settings = json.load(f)
-                # Merge loaded settings with defaults to ensure all keys exist
                 default_settings.update(loaded_settings)
                 default_settings['keybindings'].update(loaded_settings.get('keybindings', {}))
                 return default_settings
@@ -93,6 +109,17 @@ class SettingsApp:
     def _save_settings(self):
         """Saves current settings to JSON file."""
         try:
+            # Map display name back to filter_mode code
+            selected_label = self.filter_combobox.get()
+            label_to_code = {
+                "Standard (Unsharp)": "unsharp",
+                "Bicubic Smooth": "bicubic",
+                "Scale2x / EPX": "scale2x",
+                "xBRZ / Vector Smooth": "xbrz",
+                "AMD CAS (Adaptive Sharpen)": "cas"
+            }
+            self.settings['filter_mode'] = label_to_code.get(selected_label, "unsharp")
+
             os.makedirs(os.path.dirname(SETTINGS_FILE), exist_ok=True)
             with open(SETTINGS_FILE, 'w') as f:
                 json.dump(self.settings, f, indent=4)
@@ -110,16 +137,40 @@ class SettingsApp:
         row = 0
         for action, default_key_name in self.settings['keybindings'].items():
             ttk.Label(keybinding_frame, text=action.replace('_', ' ').title() + ":").grid(row=row, column=0, padx=5, pady=2, sticky="w")
-            
+
             var = tk.StringVar(value=default_key_name)
             self.keybinding_vars[action] = var
-            
+
             entry = ttk.Entry(keybinding_frame, textvariable=var, state="readonly", width=20)
             entry.grid(row=row, column=1, padx=5, pady=2)
-            
+
             button = ttk.Button(keybinding_frame, text="Change", command=lambda a=action: self._start_key_listen(a))
             button.grid(row=row, column=2, padx=5, pady=2)
             row += 1
+
+        # Smooth Edge Filter Dropdown Section
+        filter_frame = ttk.Frame(self.master)
+        filter_frame.pack(pady=15)
+
+        ttk.Label(filter_frame, text="Smooth Filter Mode:").grid(row=0, column=0, padx=5, pady=5, sticky="w")
+
+        code_to_label = {
+            "unsharp": "Standard (Unsharp)",
+            "bicubic": "Bicubic Smooth",
+            "scale2x": "Scale2x / EPX",
+            "xbrz": "xBRZ / Vector Smooth",
+            "cas": "AMD CAS (Adaptive Sharpen)"
+        }
+        current_filter_label = code_to_label.get(self.settings.get('filter_mode', 'unsharp'), "Standard (Unsharp)")
+
+        self.filter_combobox = ttk.Combobox(
+            filter_frame,
+            values=["Standard (Unsharp)", "Bicubic Smooth", "Scale2x / EPX", "xBRZ / Vector Smooth", "AMD CAS (Adaptive Sharpen)"],
+            state="readonly",
+            width=26
+        )
+        self.filter_combobox.set(current_filter_label)
+        self.filter_combobox.grid(row=0, column=1, padx=5, pady=5)
 
         ttk.Button(self.master, text="Save Settings", command=self._save_settings).pack(pady=10)
 
@@ -133,7 +184,7 @@ class SettingsApp:
         """Handles a key press event to set a shortcut."""
         if self.current_key_to_set:
             vk_code = ctypes.windll.user32.VkKeyScanA(ord(event.char)) if event.char else event.keycode
-            
+
             # Handle special keys that don't have a char or simple keycode mapping
             if vk_code == -1: # VkKeyScanA returns -1 if no direct mapping
                 if event.keysym == "Escape": vk_code = VK_CODE_MAP["VK_ESCAPE"]

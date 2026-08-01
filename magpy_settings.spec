@@ -5,7 +5,7 @@ a = Analysis(
     ['magpy_settings.py'],
     pathex=[],
     binaries=[],
-    datas=[],
+    datas=[('myicon.ico', '.')],
     hiddenimports=[],
     hookspath=[],
     hooksconfig={},
@@ -35,4 +35,5 @@ exe = EXE(
     target_arch=None,
     codesign_identity=None,
     entitlements_file=None,
+    icon=['myicon.ico'],
 )
